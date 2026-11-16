@@ -18,6 +18,7 @@
       --green: #22c55e;
       --red: #ef4444;
       --blue: #3b82f6;
+      --amber: #f59e0b;
     }
 
     * { box-sizing: border-box; }
@@ -33,10 +34,7 @@
 
     .wrap { max-width: 900px; margin: 0 auto; }
 
-    h1 {
-      font-size: 22px;
-      margin: 8px 0 16px;
-    }
+    h1 { font-size: 22px; margin: 8px 0 16px; }
 
     .card {
       background: var(--panel);
@@ -61,7 +59,6 @@
     }
 
     .value { font-weight: 700; }
-
     .live { color: var(--red); }
     .offline { color: var(--muted); }
     .connected { color: var(--green); }
@@ -99,6 +96,7 @@
     .start { background: var(--green); color: #04150a; }
     .stop { background: var(--red); color: white; }
     .apply { background: var(--blue); color: white; }
+    .play { background: var(--amber); color: #201200; }
 
     .message {
       margin-top: 10px;
@@ -133,6 +131,8 @@
       <div class="label">Browser source URL</div>
       <input id="url" type="url" placeholder="https://example.com" autocomplete="off">
       <button class="apply" onclick="setUrl()">Update browser source</button>
+      <div style="height: 10px"></div>
+      <button class="play" onclick="startPlayback()">Start playback</button>
       <div class="message" id="urlMessage"></div>
     </div>
 
@@ -217,6 +217,23 @@
       } else {
         message.className = 'message error';
         message.textContent = data.error || 'Could not update source.';
+      }
+    }
+
+    async function startPlayback() {
+      const message = document.getElementById('urlMessage');
+      message.className = 'message';
+      message.textContent = 'Starting playback in Browser Source…';
+
+      const response = await fetch('/play', { method: 'POST' });
+      const data = await response.json();
+
+      if (data.ok) {
+        message.className = 'message success';
+        message.textContent = data.result || 'Playback started.';
+      } else {
+        message.className = 'message error';
+        message.textContent = data.error || 'Could not start playback.';
       }
     }
 
