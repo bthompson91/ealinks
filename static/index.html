@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0b0f14">
+  <title>ealinks OBS Remote</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0f14;
+      --panel: #151c24;
+      --line: #263241;
+      --text: #e7eef6;
+      --muted: #8fa3b5;
+      --green: #22c55e;
+      --red: #ef4444;
+      --blue: #3b82f6;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 16px;
+    }
+
+    .wrap { max-width: 900px; margin: 0 auto; }
+
+    h1 {
+      font-size: 22px;
+      margin: 8px 0 16px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .value { font-weight: 700; }
+
+    .live { color: var(--red); }
+    .offline { color: var(--muted); }
+    .connected { color: var(--green); }
+    .disconnected { color: var(--red); }
+
+    .preview {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border: 0;
+      border-radius: 10px;
+      background: black;
+    }
+
+    input {
+      width: 100%;
+      padding: 13px;
+      font-size: 16px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #0d1319;
+      color: var(--text);
+      margin: 8px 0 12px;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 700;
+      border: 0;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    .start { background: var(--green); color: #04150a; }
+    .stop { background: var(--red); color: white; }
+    .apply { background: var(--blue); color: white; }
+
+    .message {
+      margin-top: 10px;
+      font-size: 14px;
+      color: var(--muted);
+      min-height: 18px;
+    }
+
+    .message.error { color: var(--red); }
+    .message.success { color: var(--green); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>ealinks OBS Remote</h1>
+
+    <div class="card">
+      <div class="row">
+        <div>
+          <div class="label">Stream preview</div>
+          <div class="value" id="stream">Checking…</div>
+        </div>
+        <div>
+          <div class="label">OBS</div>
+          <div class="value" id="obs">Checking…</div>
+        </div>
+      </div>
+      <iframe class="preview" src="__STREAM_PREVIEW_URL__" allowfullscreen allow="autoplay; fullscreen"></iframe>
+    </div>
+
+    <div class="card">
+      <div class="label">Browser source URL</div>
+      <input id="url" type="url" placeholder="https://example.com" autocomplete="off">
+      <button class="apply" onclick="setUrl()">Update browser source</button>
+      <div class="message" id="urlMessage"></div>
+    </div>
+
+    <div class="card">
+      <div class="label">Stream control</div>
+      <button class="start" onclick="control('start')">Start streaming</button>
+      <div style="height: 10px"></div>
+      <button class="stop" onclick="control('stop')">Stop streaming</button>
+      <div class="message" id="streamMessage"></div>
+    </div>
+  </div>
+
+  <script>
+    const browserSource = "__BROWSER_SOURCE__";
+
+    async function refresh() {
+      try {
+        const response = await fetch('/status');
+        const data = await response.json();
+
+        const obs = document.getElementById('obs');
+        const stream = document.getElementById('stream');
+
+        obs.textContent = data.obs_connected ? 'Connected' : 'Disconnected';
+        obs.className = 'value ' + (data.obs_connected ? 'connected' : 'disconnected');
+
+        stream.textContent = data.streaming ? 'LIVE' : 'Offline';
+        stream.className = 'value ' + (data.streaming ? 'live' : 'offline');
+      } catch {
+        document.getElementById('obs').textContent = 'Disconnected';
+        document.getElementById('obs').className = 'value disconnected';
+        document.getElementById('stream').textContent = 'Unknown';
+        document.getElementById('stream').className = 'value offline';
+      }
+    }
+
+    async function control(action) {
+      const message = document.getElementById('streamMessage');
+      message.className = 'message';
+      message.textContent = action === 'start' ? 'Starting…' : 'Stopping…';
+
+      const response = await fetch('/stream', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'action=' + action
+      });
+      const data = await response.json();
+
+      if (data.ok) {
+        message.className = 'message success';
+        message.textContent = action === 'start' ? 'Stream start requested.' : 'Stream stop requested.';
+      } else {
+        message.className = 'message error';
+        message.textContent = data.error || 'Request failed.';
+      }
+
+      refresh();
+    }
+
+    async function setUrl() {
+      const url = document.getElementById('url').value.trim();
+      const message = document.getElementById('urlMessage');
+      message.className = 'message';
+      message.textContent = 'Updating ' + browserSource + '…';
+
+      if (!url) {
+        message.className = 'message error';
+        message.textContent = 'Enter a URL first.';
+        return;
+      }
+
+      const response = await fetch('/url', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'url=' + encodeURIComponent(url)
+      });
+      const data = await response.json();
+
+      if (data.ok) {
+        message.className = 'message success';
+        message.textContent = 'URL applied to ' + browserSource + '.';
+      } else {
+        message.className = 'message error';
+        message.textContent = data.error || 'Could not update source.';
+      }
+    }
+
+    refresh();
+    setInterval(refresh, 3000);
+  </script>
+</body>
+</html>
